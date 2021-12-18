@@ -42,5 +42,86 @@ module Redis
 
       Parser.new(io.rewind).read.should eq ["foo!", 12345, nil]
     end
+
+    it "reads hashes" do
+      io = IO::Memory.new
+      io << "%2\r\n"
+      io << "+first\r\n"
+      io << ":1\r\n"
+      io << "+second\r\n"
+      io << ":2\r\n"
+      io << ":123\r\n"
+
+      parser = Parser.new(io.rewind)
+      parser.read.should eq({"first" => 1, "second" => 2})
+      parser.read.should eq 123
+    end
+
+    it "reads nil" do
+      io = IO::Memory.new
+      io << "_\r\n"
+
+      Parser.new(io.rewind).read.should be_nil
+    end
+
+    it "reads floats" do
+      io = IO::Memory.new
+      io << ",1.23\r\n"
+      io << ",inf\r\n"
+      io << ",-inf\r\n"
+      io << ",1.2345E2\r\n"
+      io << ",1.2345E-2\r\n"
+
+      parser = Parser.new(io.rewind)
+      parser.read.should eq 1.23
+      parser.read.should eq Float64::INFINITY
+      parser.read.should eq -Float64::INFINITY
+      parser.read.should eq 123.45
+      parser.read.should eq 0.012345
+    end
+
+    it "reads booleans" do
+      io = IO::Memory.new
+      io << "#t\r\n"
+      io << "#f\r\n"
+
+      parser = Parser.new(io.rewind)
+      parser.read.should eq true
+      parser.read.should eq false
+    end
+
+    it "reads verbatim strings" do
+      io = IO::Memory.new
+      io << "=15\r\n"
+      io << "txt:Some string\r\n"
+
+      parser = Parser.new(io.rewind)
+      parser.read.should eq "Some string"
+    end
+
+    it "reads sets" do
+      io = IO::Memory.new
+      io << "~5\r\n"
+      io << "+orange\r\n"
+      io << "+apple\r\n"
+      io << "#t\r\n"
+      io << ":100\r\n"
+      io << ":999\r\n"
+
+      parser = Parser.new(io.rewind)
+      parser.read.should eq Set{"orange", "apple", true, 100i64, 999i64}
+    end
+
+    it "reads attributes" do
+      io = IO::Memory.new
+      io << "|1\r\n"
+      io << "+key\r\n"
+      io << "+value\r\n"
+      io << "+actual return value\r\n"
+
+      parser = Parser.new(io.rewind)
+      parser.read.should eq "actual return value"
+      parser.attributes["key"]?.should eq "value"
+    end
   end
 end

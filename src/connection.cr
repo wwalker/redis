@@ -49,6 +49,7 @@ module Redis
                uri.path[1..-1]
              end
         run({"select", db}) unless db == "0"
+        run({"hello", "3"})
       end
     end
 
